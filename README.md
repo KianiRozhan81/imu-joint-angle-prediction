@@ -1,4 +1,3 @@
-# imu-joint-angle-prediction
 # IMU-Based Joint Angle Prediction
 
 **24-788 Introduction to Deep Learning — Spring 2026**  
@@ -9,9 +8,9 @@
 
 ## What is this project?
 
-Measuring joint angles during walking normally requires a full motion capture lab, expensive equipment, controlled environments, and a lot of setup. We asked a simpler question: can we get the same information from cheap, wearable IMU sensors?
+Measuring joint angles during walking normally requires a full motion capture lab — expensive equipment, controlled environments, and a lot of setup. We asked a simpler question: can we get the same information from cheap, wearable IMU sensors?
 
-In this project, we trained three deep learning models to predict hip, knee, and ankle joint angles from IMU data collected during treadmill walking. We compared a standard LSTM baseline against two more recent architectures, a Temporal Convolutional Network (TCN) and a Patch-based Transformer (PatchTST), to see which one generalizes best across subjects.
+In this project we trained three deep learning models to predict hip, knee, and ankle joint angles from IMU data collected during treadmill walking. We compared a standard bidirectional LSTM baseline against two more recent architectures — a Temporal Convolutional Network (TCN) and a Patch-based Transformer (PatchTST) — to see which one generalizes best across subjects.
 
 ---
 
@@ -30,31 +29,25 @@ In this project, we trained three deep learning models to predict hip, knee, and
 This project exceeds the 2-person scope requirement by delivering two additional analyses:
 
 **1. Learning Curves (Training Dynamics)**  
-We trained all three models on subsets of 25%, 50%, 75%, and 100% of the training subjects and measured test RMSE at each level. This analysis directly addresses a clinically relevant question: how much labeled data is needed before these models generalize reliably across subjects?
+We trained all three models on subsets of 25%, 50%, 75%, and 100% of training subjects and measured test RMSE at each level. This directly addresses a clinically relevant question: how much labeled data is needed before models generalize reliably across subjects?
 
 **2. Rotation Augmentation (Model Mechanics)**  
-Motivated by Um et al. (2017), we applied random 3D rotation augmentation to IMU signals during TCN training to simulate sensor misalignment between subjects. Each IMU sensor's accelerometer and gyroscope triads were independently rotated by a random angle sampled from a zero-mean Gaussian during each training step. We compare TCN with and without augmentation to assess its effect on cross-subject generalization.
+Motivated by Um et al. (2017), we applied random 3D rotation augmentation to IMU signals during TCN training to simulate sensor misalignment between subjects. We compare TCN with and without augmentation to assess its effect on cross-subject generalization.
 
 ---
 
-## Dataset
+## Results
 
-23 able-bodied subjects (AB06–AB30) walking on a treadmill. Each subject has:
-- **IMU data** — 4 sensors (foot, shank, thigh, trunk), each with accelerometer + gyroscope = 24 features at 200 Hz
-- **Joint angles** — hip flexion, hip adduction, hip rotation, knee angle, ankle angle (right side) from inverse kinematics
-- **Gait cycle events** — heel strike and toe off timing
+| Joint | LSTM (°) | TCN (°) | PatchTST (°) |
+|-------|----------|---------|--------------|
+| Hip Flexion | 6.38 | 7.21 | 6.97 |
+| Hip Adduction | 5.04 | 4.66 | 4.88 |
+| Hip Rotation | 7.05 | 6.66 | 8.68 |
+| Knee Angle | 5.87 | 6.54 | 6.01 |
+| Ankle Angle | 4.16 | 3.39 | 4.37 |
+| **Mean** | **5.70** | **5.69** | **6.18** |
 
-**Download the data here:**  
-[Google Drive](https://drive.google.com/drive/folders/1trD4-GB9OCNVug2qI5CdnYDbA279FuAn?usp=sharing)
-
-Place it at `data/matlab_exported/` with this structure:
-```
-data/matlab_exported/
-    AB06/1/treadmill/imu/
-    AB06/1/treadmill/ik/
-    AB06/1/treadmill/gcRight/
-    AB07/...
-```
+TCN and LSTM perform comparably overall. TCN is stronger at ankle and hip rotation — joints with more rhythmic periodic patterns. PatchTST underperforms slightly, likely because the 200-timestep windows are too short for patch-level attention to provide an advantage over simpler architectures.
 
 ---
 
@@ -63,8 +56,8 @@ data/matlab_exported/
 ```
 imu-joint-angle-prediction/
 │
-├── main.py                  # Train LSTM and TCN
-├── train_patchtst.py        # Train PatchTST
+├── main.py                  # Train LSTM and TCN (200 epochs)
+├── train_patchtst.py        # Train PatchTST (200 epochs)
 ├── train_tcn_aug.py         # Train TCN with rotation augmentation
 ├── learning_curves.py       # RMSE vs training set size analysis
 │
@@ -82,6 +75,9 @@ imu-joint-angle-prediction/
 │   ├── splits.py            # Subject-level data splitting
 │   └── augmentation.py      # IMU rotation augmentation (Um et al., 2017)
 │
+├── checkpoints/             # Saved model weights (included in repo)
+├── results/                 # Saved losses, predictions, and figures
+│
 └── notebooks/
     └── reproduce_results.ipynb   # Reproduces all figures and metrics
 ```
@@ -90,73 +86,103 @@ imu-joint-angle-prediction/
 
 ## Setup
 
+### Step 1 — Clone the repository
+
+```bash
+git clone https://github.com/KianiRozhan81/imu-joint-angle-prediction.git
+cd imu-joint-angle-prediction
+```
+
+### Step 2 — Create and activate the environment
+
 ```bash
 conda create -n DLcourse python=3.9
 conda activate DLcourse
+```
 
+### Step 3 — Install dependencies
+
+```bash
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 pip install numpy pandas scikit-learn matplotlib scipy jupyter
 ```
 
+> If you don't have a CUDA GPU, install the CPU version instead:
+> ```bash
+> pip install torch torchvision torchaudio
+> ```
+
+### Step 4 — Download the dataset
+
+The raw data is hosted on Google Drive. Download the `data` folder from:
+
+**[Google Drive Dataset Link](https://drive.google.com/drive/folders/1trD4-GB9OCNVug2qI5CdnYDbA279FuAn?usp=sharing)**
+
+The Drive contains a `data/` folder with two subfolders:
+- `matlab_exported/` — raw IMU and IK CSV files organized by subject
+- `processed/` — metadata CSV and fitted scalers
+
+Place both folders inside the `data/` directory of the cloned repo so the structure looks like:
+
+```
+imu-joint-angle-prediction/
+└── data/
+    ├── matlab_exported/
+    │   ├── AB06/
+    │   │   └── 1/treadmill/
+    │   │       ├── imu/
+    │   │       ├── ik/
+    │   │       └── gcRight/
+    │   ├── AB07/
+    │   └── ...
+    └── processed/
+        ├── metadata.csv
+        └── scalers/
+```
+
 ---
 
-## How to Reproduce Results
+## Reproducing Results
 
-You don't need to retrain anything — just load the checkpoints and run the notebook.
+All model checkpoints and precomputed results are already included in the repo. You do not need to retrain anything.
 
-### Step 1 — Get the data
-Download from the Google Drive link above and place at `data/matlab_exported/`.
+### Reproduce all figures and metrics
 
-### Step 2 — Build metadata
-```bash
-python src/build_metadata.py
-```
-
-### Step 3 — Train models (optional — checkpoints already saved)
-```bash
-python main.py               # LSTM + TCN
-python train_patchtst.py     # PatchTST
-python train_tcn_aug.py      # TCN + rotation augmentation
-python learning_curves.py    # Learning curve analysis
-```
-
-### Step 4 — Reproduce all figures and metrics
 ```bash
 jupyter notebook notebooks/reproduce_results.ipynb
 ```
-Run all cells. The notebook loads saved checkpoints and regenerates:
-- Per-joint RMSE table
-- Training curves
-- Gait cycle plots (mean ± std band)
-- Learning curves
-- Augmentation comparison
+
+Run all cells. The notebook will generate:
+- Per-joint RMSE table for all three models
+- Training and validation loss curves
+- Gait cycle plots (mean ± std band over 0–100% gait cycle)
+- Learning curves (RMSE vs number of training subjects)
+- TCN vs TCN + augmentation comparison
+
+### Retrain from scratch (optional)
+
+If you want to retrain the models yourself:
+
+```bash
+python main.py               # Train LSTM + TCN
+python train_patchtst.py     # Train PatchTST
+python train_tcn_aug.py      # Train TCN with rotation augmentation
+python learning_curves.py    # Learning curve analysis
+```
+
+> Training was done on an NVIDIA GPU. Each model takes approximately 30–60 minutes for 200 epochs.
 
 ---
 
 ## Data Splits
 
-We split by subject — never by window — to prevent data leakage:
+Splits are subject-level — never by window — to prevent data leakage:
 
 | Split | Subjects |
 |-------|----------|
-| Train | 18 subjects |
+| Train | 18 subjects (AB06–AB24, excluding val/test) |
 | Val   | AB28, AB29, AB30 |
 | Test  | AB25, AB27 |
-
----
-
-## Results
-
-| Joint | LSTM (°) | TCN (°) | PatchTST (°) |
-|-------|----------|---------|--------------|
-| Hip Flexion | 6.38 | 7.21 | 6.97 |
-| Hip Adduction | 5.04 | 4.66 | 4.88 |
-| Hip Rotation | 7.05 | 6.66 | 8.68 |
-| Knee Angle | 5.87 | 6.54 | 6.01 |
-| Ankle Angle | 4.16 | 3.39 | 4.37 |
-| **Mean** | **5.70** | **5.69** | **6.18** |
-
-TCN and LSTM perform comparably overall. TCN edges out on ankle and hip rotation — joints with more rhythmic, periodic patterns. LSTM holds its own on knee and hip flexion. PatchTST underperforms slightly, likely because the 200-timestep windows are too short for patch-based attention to provide an advantage.
 
 ---
 
@@ -171,6 +197,3 @@ TCN and LSTM perform comparably overall. TCN edges out on ankle and hip rotation
 ## AI Tool Disclosure
 
 We used Claude (Anthropic) to help with code structure and debugging. All modeling decisions, analysis, and written report content are our own.
-
-
-
