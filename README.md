@@ -10,7 +10,7 @@
 
 Measuring joint angles during walking normally requires a full motion capture lab — expensive equipment, controlled environments, and a lot of setup. We asked a simpler question: can we get the same information from cheap, wearable IMU sensors?
 
-In this project we trained three deep learning models to predict hip, knee, and ankle joint angles from IMU data collected during treadmill walking. We compared a standard bidirectional LSTM baseline against two more recent architectures — a Temporal Convolutional Network (TCN) and a Patch-based Transformer (PatchTST) — to see which one generalizes best across subjects.
+In this project we trained three deep learning models to predict hip, knee, and ankle joint angles from IMU data collected during treadmill walking. We compared a standard bidirectional LSTM baseline against two more recent architectures, a Temporal Convolutional Network (TCN) and a Patch-based Transformer (PatchTST) , to see which one generalizes best across subjects.
 
 ---
 
@@ -176,7 +176,7 @@ python learning_curves.py    # Learning curve analysis
 
 ## Data Splits
 
-Splits are subject-level — never by window — to prevent data leakage:
+Splits are subject-level to prevent data leakage:
 
 | Split | Subjects |
 |-------|----------|
